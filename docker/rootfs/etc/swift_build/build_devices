@@ -1,10 +1,10 @@
 #!/usr/bin/with-contenv sh
 
 cd /etc/swift
-DEV_SIZE="1GB"
+DEV_SIZE=${OPENSTACK_SWIFT_DEVICE_SIZE:-"10GB"}
 # POLICIES="object container account"
-MY_STORAGE_TYPE=${STORAGE_TYPE:-"internal_dirs"}
-MY_DEVICE_COUNT=${DEVICE_COUNT:-6}
+MY_STORAGE_TYPE=${OPENSTACK_SWIFT_STORAGE_TYPE:-"internal_dirs"}
+MY_DEVICE_COUNT=${OPENSTACK_SWIFT_DEVICE_COUNT:-5}
 
 echo "[[ checking --privileged ]]"
 ip link add dummy0 type dummy >/dev/null
@@ -23,21 +23,38 @@ DEVICE_LIST=""
 if [[ $MY_STORAGE_TYPE == "external_devices" ]]; then
   DEVICE_LIST=$(ls /dev/ | grep -i "swift-d")
   MY_DEVICE_COUNT=$(wc -w $DEVICE_LIST)
-  echo "  using external device. devices found: $DEVICE_LIST"
+  echo "using external device. devices found: $DEVICE_LIST"
 elif [[ $MY_DEVICE_COUNT -le 0 ]]; then
-  echo "Device count must be greater than 0"
+  echo "device count must be greater than 0"
   exit -1
 else
   for i in $(seq 0 $(( MY_DEVICE_COUNT-1 ))); do
     DEVICE_LIST="$DEVICE_LIST swift-d$i"
   done
-  # echo "  using internal devices. devices to create: $DEVICE_LIST"
+  echo "using storage type: $MY_STORAGE_TYPE, devices/dirs to create: $DEVICE_LIST"
 fi
+
+echo "[[ checking device directories ]]"
+devices_dir_existed=true
+for dir in $DEVICE_LIST; do
+  if [[ -d /srv/node/$dir ]]; then
+    echo "/srv/node/$dir is existed"
+  else
+    echo "/srv/node/$dir it not existed"
+    devices_dir_existed=false
+  fi
+done
+
+[[ $devices_dir_existed == 'true' ]] && echo "skip build devices" && exit 0
 
 if [[ $MY_STORAGE_TYPE == "internal_devices" ]]; then
   for device in $DEVICE_LIST; do
-    truncate -s $DEV_SIZE /dev/$device;
-    echo "    created storage device /dev/swift-d$i of $DEV_SIZE";
+    if [[ -d /srv/node/$dir ]]; then
+      echo "/srv/node/$dir is existed, skip create device for /srv/node/$dir"
+    else
+      truncate -s $DEV_SIZE /dev/$device;
+      echo "created storage device /dev/swift-d$i of $DEV_SIZE";
+    fi
   done
 fi
 
@@ -46,17 +63,15 @@ export PATH=$PATH:/opt/python/usr/local/bin/
 echo "[[ creating directories ]]"
 for dir in $DEVICE_LIST; do
   mkdir -p /srv/node/$dir;
-  echo "  created /srv/node/$dir";
+  echo "created /srv/node/$dir";
 done
 
 if [[ $MY_STORAGE_TYPE == "internal_devices" ]] || [[ $MY_STORAGE_TYPE == "external_devices" ]]; then
   echo "[[ formating and mounting storage devices ]] "
   for device in $DEVICE_LIST; do
-    # truncate -s $DEV_SIZE /dev/swift-d$i;
-    # echo "created storage device /dev/swift-d$i of $DEV_SIZE";
     mkfs.xfs -f -L D$i -i size=512 /dev/$device;
-    echo "  created XFS file system on device /dev/$device";
+    echo "created XFS file system on device /dev/$device";
     mount -t xfs -o noatime /dev/$device /srv/node/$device;
-    echo "  mounted /dev/$device as /srv/node/$device";
+    echo "mounted /dev/$device as /srv/node/$device";
   done
 fi

@@ -1,7 +1,7 @@
 #!/bin/sh
 set -e
 
-# adduser -D -H syslog && \
+adduser -D -H syslog && \
 for user in "swift"; do
   if ! id -u $user > /dev/null 2>&1 ; then
     adduser -D $user

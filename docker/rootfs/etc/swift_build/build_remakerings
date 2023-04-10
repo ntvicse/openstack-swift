@@ -2,6 +2,11 @@
 
 POLICIES="object container account"
 
+if [[ -f /etc/swift/.remakerings.executed ]]; then
+  echo "/etc/swift/.remakerings.executed is existed, skip build remakerings"
+  exit 0
+fi
+
 for p in $POLICIES; do
   echo "swift-ring-builder $p.builder create 10 1 1" > /etc/swift/remakerings.$p;
   echo "started /etc/swift/remakerings.$p with 'swift-ring-build create'"
@@ -22,6 +27,7 @@ for p in $POLICIES; do
   echo "pushed command to rebalance ring into /etc/swift/remakerings.$p"
 done
 
+# TODO: backup all ring files for swift cluster
 echo "rm -f *.builder *.ring.gz backups/*.builder backups/*.ring.gz" > /etc/swift/remakerings
 echo "created umbrella /etc/swift/remakerings, with deleting all ring files"
 

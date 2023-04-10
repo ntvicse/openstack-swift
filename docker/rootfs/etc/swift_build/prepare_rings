@@ -2,5 +2,14 @@
 
 /etc/swift_build/build_devices
 /etc/swift_build/build_remakerings
+
 cd /etc/swift
-/etc/swift/remakerings
+
+if [[ -f /etc/swift/.remakerings.executed ]]; then
+  echo "/etc/swift/.remakerings.executed is existed, skip execute /etc/swift/remakerings"
+else
+  echo "execute /etc/swift/remakerings"
+  /etc/swift/remakerings
+  echo "create /etc/swift/.remakerings.executed"
+  touch /etc/swift/.remakerings.executed
+fi
